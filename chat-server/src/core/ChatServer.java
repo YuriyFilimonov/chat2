@@ -7,6 +7,7 @@ import network.SocketThreadListener;
 
 import java.net.ServerSocket;
 import java.net.Socket;
+import java.util.Vector;
 
 public class ChatServer implements ServerSocketThreadListener, SocketThreadListener {
 
@@ -51,10 +52,10 @@ public class ChatServer implements ServerSocketThreadListener, SocketThreadListe
     }
 
     @Override
-    public void onSocketAccepted(ServerSocketThread thread, ServerSocket server, Socket socket) {
+    public SocketThread onSocketAccepted(ServerSocketThread thread, ServerSocket server, Socket socket) {
         putLog("Client connected");
         String name = "SocketThread " + socket.getInetAddress() + ":" + socket.getPort();
-        new SocketThread(this, name, socket);
+        return new SocketThread(this, name, socket);
     }
 
     @Override
@@ -66,6 +67,7 @@ public class ChatServer implements ServerSocketThreadListener, SocketThreadListe
     @Override
     public void onServerStop(ServerSocketThread thread) {
         putLog("Server thread stopped");
+
     }
 
     /**
@@ -80,6 +82,7 @@ public class ChatServer implements ServerSocketThreadListener, SocketThreadListe
     @Override
     public void onSocketStop(SocketThread thread) {
         putLog("Socket stopped");
+        server.getSocketThreadVector().removeElement(thread);
     }
 
     @Override
@@ -89,7 +92,15 @@ public class ChatServer implements ServerSocketThreadListener, SocketThreadListe
 
     @Override
     public void onReceiveString(SocketThread thread, Socket socket, String msg) {
-        thread.sendMessage("echo: " + msg);
+        if (msg.charAt(0) == '~'){
+            System.out.println(msg);
+            StringBuffer msgBuf = new StringBuffer(msg);
+            msgBuf.deleteCharAt(0);
+            for (SocketThread socketThreadVector : server.getSocketThreadVector()) {
+                socketThreadVector.sendMessage("echoAll: " + msgBuf);
+            }
+        }
+        else thread.sendMessage("echo1: " + msg);
     }
 
     @Override

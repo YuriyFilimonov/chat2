@@ -24,11 +24,14 @@ public class ClientGUI extends JFrame implements ActionListener, Thread.Uncaught
     private final JTextField tfLogin = new JTextField("ivan");
     private final JPasswordField tfPassword = new JPasswordField("123");
     private final JButton btnLogin = new JButton("Login");
+    private final JScrollPane scrUser;
+    private final JScrollPane scrLog;
 
-    private final JPanel panelBottom = new JPanel(new BorderLayout());
+    private final JPanel panelBottom = new JPanel(new FlowLayout());
     private final JButton btnDisconnect = new JButton("<html><b>Disconnect</b></html>");
-    private final JTextField tfMessage = new JTextField();
+    private final JTextField tfMessage = new JTextField(9);
     private final JButton btnSend = new JButton("Send");
+    private final JButton btnSendAll = new JButton("Send to All");
 
     private final JList<String> userList = new JList<>();
     private boolean shownIoErrors = false;
@@ -52,8 +55,8 @@ public class ClientGUI extends JFrame implements ActionListener, Thread.Uncaught
         userList.setListData(new String[]{"user1", "user2", "user3", "user4",
                 "user5", "user6", "user7", "user8", "user9",
                 "user-with-exceptionally-long-name-in-this-chat"});
-        JScrollPane scrUser = new JScrollPane(userList);
-        JScrollPane scrLog = new JScrollPane(log);
+        scrUser = new JScrollPane(userList);
+        scrLog = new JScrollPane(log);
         scrUser.setPreferredSize(new Dimension(100, 0));
         log.setLineWrap(true);
         log.setWrapStyleWord(true);
@@ -61,7 +64,9 @@ public class ClientGUI extends JFrame implements ActionListener, Thread.Uncaught
         cbAlwaysOnTop.addActionListener(this);
         tfMessage.addActionListener(this);
         btnSend.addActionListener(this);
+        btnSendAll.addActionListener(this);
         btnLogin.addActionListener(this);
+        btnDisconnect.addActionListener(this);
 
         panelTop.add(tfIPAddress);
         panelTop.add(tfPort);
@@ -69,14 +74,17 @@ public class ClientGUI extends JFrame implements ActionListener, Thread.Uncaught
         panelTop.add(tfLogin);
         panelTop.add(tfPassword);
         panelTop.add(btnLogin);
-        panelBottom.add(btnDisconnect, BorderLayout.WEST);
-        panelBottom.add(tfMessage, BorderLayout.CENTER);
-        panelBottom.add(btnSend, BorderLayout.EAST);
+        panelBottom.add(btnDisconnect);
+        panelBottom.add(tfMessage);
+        panelBottom.add(btnSendAll);
+        panelBottom.add(btnSend);
 
         add(scrUser, BorderLayout.EAST);
         add(scrLog, BorderLayout.CENTER);
         add(panelTop, BorderLayout.NORTH);
         add(panelBottom, BorderLayout.SOUTH);
+        panelTopToRepay(true);
+        panelBottom.setVisible(false);
         setVisible(true);
     }
 
@@ -87,11 +95,32 @@ public class ClientGUI extends JFrame implements ActionListener, Thread.Uncaught
             setAlwaysOnTop(cbAlwaysOnTop.isSelected());
         } else if (src == btnSend || src == tfMessage) {
             sendMessage();
+        } else if (src == btnSendAll) {
+            sendMessageToAll();
         } else if (src == btnLogin) {
             connect();
+            panelBottom.setVisible(true);
+        } else if (src == btnDisconnect) {
+            System.out.println("Disconnect");
+            if (socketThread.isAlive()) {
+                socketThread.close();
+                onSocketStop(socketThread);
+            } else if (!panelTop.isVisible()) {
+                panelTopToRepay(true);
+                System.out.println(socketThread.isAlive());
+            } else {
+                panelTopToRepay(false);
+                System.out.println(socketThread.isAlive());
+            }
         } else {
             throw new RuntimeException("Unknown source:" + src);
         }
+    }
+
+    private void panelTopToRepay(boolean b) {
+        scrUser.setVisible(b);
+        scrLog.setVisible(b);
+        panelTop.setVisible(b);
     }
 
     private void connect() {
@@ -105,6 +134,18 @@ public class ClientGUI extends JFrame implements ActionListener, Thread.Uncaught
 
     private void sendMessage() {
         String msg = tfMessage.getText();
+        String username = tfLogin.getText();
+        if ("".equals(msg)) return;
+        tfMessage.setText(null);
+        tfMessage.requestFocusInWindow();
+        socketThread.sendMessage(msg);
+        //putLog(String.format("%s: %s", username, msg));
+        //wrtMsgToLogFile(msg, username);
+    }
+
+    private void sendMessageToAll() {
+        String msg = ("~" + tfMessage.getText());
+        System.out.println(msg);
         String username = tfLogin.getText();
         if ("".equals(msg)) return;
         tfMessage.setText(null);
@@ -158,7 +199,7 @@ public class ClientGUI extends JFrame implements ActionListener, Thread.Uncaught
 
     /**
      * Socket Thread Listener methods
-     * */
+     */
 
     @Override
     public void onSocketStart(SocketThread thread, Socket socket) {
